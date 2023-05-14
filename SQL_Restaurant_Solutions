@@ -1,0 +1,128 @@
+Introduction to the problem statement
+========================
+We have a data sets  
+We need to decide based on the spending patterns of a restaurant that sells his 3 favourite foods: pizza, pasta and burger.
+We need to provide the assistance to help the restaurant in the market - the restaurant has captured some very basic data from their few months of operation but 
+we need to solve on how to use their data to help them run the business.
+
+-Problem statements--
+
+1) What is the total amount each customer spent at the restaurant?
+
+select customer_id, sum(price)as total_amount
+from sales t join menu m
+on t.product_id=m.product_id
+group by customer_id
+
+2) How many days has each customer visited the restaurant?
+SELECT customer_id,
+select customer_id, count(order_date)As Visted_days
+from sales
+group by customer_id
+
+3) What was the first item from the menu purchased by each customer?
+
+with order_CTE(customer_id,product_id,order_date,first_item) as
+(
+select customer_id,product_id,order_date, dense_rank() over(partition by customer_id order by order_date)as first_item
+	from sales
+	)
+	select distinct c.customer_id, m.product_name
+	from order_CTE c join menu m
+	on c.product_id=m.product_id
+	where c.first_item=1
+	group by customer_id,m.product_name
+	
+
+4) What is the most purchased item on the menu and how many times was it purchased by all customers?
+
+select count(s.product_id)as No_of_times,product_name
+from sales s join menu m
+on s.product_id=m.product_id
+group by product_name
+order by count(*) desc
+limit 1
+
+5) Which item was the most popular for each customer?
+
+with MostPopular_item (customer_id,product_name, product_id,most_popular_item)as
+(
+select customer_id, product_name, count(s.product_id)
+,dense_rank() over(partition by customer_id order by count(s.product_id) desc)
+as most_popular_item
+from sales s  join menu m
+on s.product_id=m.product_id
+group by customer_id, product_name
+order by count desc
+	)
+select min(customer_id),product_name
+from MostPopular_item
+where most_popular_item=1
+group by customer_id,product_name
+
+
+6) Which item was purchased first by the customer after they became a member?
+
+with item as
+(
+select s.customer_id, s.product_id, product_name,dense_rank()over(partition by s.customer_id order by order_date) as Ranking
+from sales s join members m
+on m.customer_id=s.customer_id
+ join menu t
+on t.product_id=s.product_id
+where s.order_date>=m.join_date
+order by order_date
+	)
+select customer_id, product_name
+from item i
+where i.ranking=1
+
+7) Which item was purchased just before the customer became a member?
+
+with item as
+(
+select s.customer_id, s.product_id, product_name,dense_rank()over(partition by s.customer_id order by order_date) as Ranking
+from sales s join members m
+on m.customer_id=s.customer_id
+ join menu t
+on t.product_id=s.product_id
+where s.order_date<m.join_date
+order by order_date
+	)
+select customer_id, product_name
+from item i
+where i.ranking=1
+
+
+8) What is the total items and amount spent for each member before they became a member?
+
+SELECT s.customer_id,
+       count(s.product_id) AS total_items, 
+       SUM(price) AS money_spent
+FROM sales AS s
+JOIN menu AS m 
+ON m.product_id = s.product_id
+JOIN members AS mem 
+ON s.customer_id = mem.customer_id
+WHERE s.order_date < mem.join_date
+GROUP BY s.customer_id
+
+9) If each $1 spent equates to 10 points and Pizza has a 2x points multiplier - how many points would each customer have?
+with points_details as
+(
+select customer_id, product_name,
+case
+when product_name='pizza' then price*20
+else
+price*10
+end as points
+from sales s join menu m
+on s.product_id=m.product_id
+	)
+select p.customer_id, sum(points)
+from points_details p
+group by customer_id
+order by customer_id
+
+
+
